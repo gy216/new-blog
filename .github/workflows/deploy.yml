@@ -6,34 +6,53 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Debug env
+        run: |
+          echo "OWNER=${{ github.repository_owner }}"
+          echo "REPO=${{ github.event.repository.name }}"
 
       - name: Build site
         env:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          SITE_TITLE: "我的博客"
-        run: python build.py
+        run: |
+          set -e
+          python build.py
+          echo "--- output 目录检查 ---"
+          ls -la output
+          ls -la output/posts | head
+          test -f output/index.html && echo "OK index.html 存在" || exit 1
 
-      - name: Upload to Pages
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
           path: output
 
-      - name: Deploy to GitHub Pages
-        id: deploy
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
         uses: actions/deploy-pages@v4
