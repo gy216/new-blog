@@ -1,0 +1,39 @@
+name: Build and Deploy
+
+on:
+  issues:
+    types: [opened, edited, deleted]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build site
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          SITE_TITLE: "我的博客"
+        run: python build.py
+
+      - name: Upload to Pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: output
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
